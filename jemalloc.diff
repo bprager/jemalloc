@@ -1,0 +1,74 @@
+diff --git a/configure.ac b/configure.ac
+index d68d376c..6a6bb404 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -675,7 +675,7 @@ case "${host}" in
+ 	  default_retain="1"
+ 	fi
+ 	;;
+-  *-*-linux*)
++  *-*-linux* | *-*-cygwin*)
+ 	dnl syscall(2) and secure_getenv(3) are exposed by _GNU_SOURCE.
+ 	JE_APPEND_VS(CPPFLAGS, -D_GNU_SOURCE)
+ 	abi="elf"
+@@ -687,6 +687,14 @@ case "${host}" in
+ 	if test "${LG_SIZEOF_PTR}" = "3"; then
+ 	  default_retain="1"
+ 	fi
++	case "${host}" in
++	  *-*-cygwin*)
++	    is_cygwin="1"
++	    DUMP_SYMS="dumpbin /SYMBOLS"
++	    ;;
++	  *)
++	    ;;
++	esac
+ 	;;
+   *-*-kfreebsd*)
+ 	dnl syscall(2) and secure_getenv(3) are exposed by _GNU_SOURCE.
+@@ -727,7 +735,7 @@ case "${host}" in
+ 	fi
+ 	abi="xcoff"
+ 	;;
+-  *-*-mingw* | *-*-cygwin*)
++  *-*-mingw*)
+ 	abi="pecoff"
+ 	force_tls="0"
+ 	maps_coalesce="0"
+@@ -748,13 +756,6 @@ case "${host}" in
+ 	  DSO_LDFLAGS="-shared"
+ 	  link_whole_archive="1"
+ 	fi
+-	case "${host}" in
+-	  *-*-cygwin*)
+-	    DUMP_SYMS="dumpbin /SYMBOLS"
+-	    ;;
+-	  *)
+-	    ;;
+-	esac
+ 	a="lib"
+ 	libprefix=""
+ 	SOREV="${so}"
+@@ -2232,7 +2233,8 @@ fi
+ dnl ============================================================================
+ dnl Enable background threads if possible.
+ 
+-if test "x${have_pthread}" = "x1" -a "x${je_cv_os_unfair_lock}" != "xyes" ; then
++if [[ "x${have_pthread}" = "x1" ]] && [[ "x${je_cv_os_unfair_lock}" != "xyes" ]] && [[ "x${is_cygwin}" != "x1" ]]
++then
+   AC_DEFINE([JEMALLOC_BACKGROUND_THREAD])
+ fi
+ 
+diff --git a/include/jemalloc/internal/jemalloc_internal_decls.h b/include/jemalloc/internal/jemalloc_internal_decls.h
+index 32058ced..a146f554 100644
+--- a/include/jemalloc/internal/jemalloc_internal_decls.h
++++ b/include/jemalloc/internal/jemalloc_internal_decls.h
+@@ -19,7 +19,7 @@
+ #else
+ #  include <sys/param.h>
+ #  include <sys/mman.h>
+-#  if !defined(__pnacl__) && !defined(__native_client__)
++#  if !defined(__pnacl__) && !defined(__native_client__) && !defined(__CYGWIN__)
+ #    include <sys/syscall.h>
+ #    if !defined(SYS_write) && defined(__NR_write)
+ #      define SYS_write __NR_write
